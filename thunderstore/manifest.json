@@ -1,0 +1,9 @@
+{
+    "name": "InvokyrConfig",
+    "version_number": "1.0.0",
+    "website_url": "https://github.com/darkharasho/invokyr-config",
+    "description": "In-game settings for every mod in Invokyr: a Mods button in the title and pause menus (or F2) lists each mod's settings and changes them live.",
+    "dependencies": [
+        "BepInEx-BepInExPack_IL2CPP-6.0.788"
+    ]
+}
