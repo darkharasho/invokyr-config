@@ -32,6 +32,7 @@
     <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(BepInExCorePath)/BepInEx.Unity.IL2CPP.dll" Private="false" />
     <Reference Include="BepInEx.Unity.Common" HintPath="$(BepInExCorePath)/BepInEx.Unity.Common.dll" Private="false" />
     <Reference Include="0Harmony" HintPath="$(BepInExCorePath)/0Harmony.dll" Private="false" />
+    <Reference Include="SemanticVersioning" HintPath="$(BepInExCorePath)/SemanticVersioning.dll" Private="false" />
     <Reference Include="Il2CppInterop.Runtime" HintPath="$(BepInExCorePath)/Il2CppInterop.Runtime.dll" Private="false" />
     <Reference Include="Il2CppInterop.Common" HintPath="$(BepInExCorePath)/Il2CppInterop.Common.dll" Private="false" />
     <Reference Include="Il2Cppmscorlib" HintPath="$(InteropPath)/Il2Cppmscorlib.dll" Private="false" />
