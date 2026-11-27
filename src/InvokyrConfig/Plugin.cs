@@ -32,6 +32,7 @@ namespace InvokyrConfig
                 null, new ConfigurationManagerAttributes { DispName = "Show advanced settings", Order = 1 }));
 
             AddComponent<ConfigPanelController>();
+            AddComponent<MenuButtonInjector>();
 
             Log.LogInfo($"{PluginName} {PluginVersion} loaded; press {ToggleKey.Value} or use Mods in the menu");
         }
