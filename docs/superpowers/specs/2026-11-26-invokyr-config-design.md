@@ -7,8 +7,10 @@ so on) is to quit, edit a `.cfg` file under `BepInEx/config`, and restart. Invok
 every loaded BepInEx plugin's settings and edits them live, the way REPOConfig does for R.E.P.O. and
 `stonewards-mod-settings` does for Stonewards.
 
-Success: a player opens the panel from the title screen or the pause menu (or with a key), drags the flashlight
-brightness slider, and sees the beam change without restarting.
+Success: a player opens the panel from the title screen or the pause menu (or with a key), changes the flashlight
+settings, and sees them take effect without restarting. Beam width and range change while the slider moves.
+Brightness applies the next time the flashlight is switched on, and its setting description says so (agreed with
+the user).
 
 ## Goals
 
@@ -20,15 +22,19 @@ brightness slider, and sees the beam change without restarting.
   `AcceptableValueRange`, and enums from `AcceptableValueList` or the enum type.
 - Changes apply immediately (written through `ConfigEntryBase.BoxedValue`, so each mod's `SettingChanged` fires) and are
   saved to disk.
-- Honour `ConfigurationManagerAttributes` (`DispName`, `Order`, `Browsable`, `ReadOnly`, `IsAdvanced`), which all
-  Invokyr mods already set.
+- Honour `ConfigurationManagerAttributes` (`DispName`, `Order`, `Browsable`, `ReadOnly`, `IsAdvanced`), read by
+  field name through reflection, because every mod has its own copy of the class. Today the Invokyr mods only set
+  `DispName` and `Order`.
+- Show each setting's description in the panel, not only on hover. Notes such as "applies the next time it's
+  switched on" must be visible.
 
 ## Non-goals
 
 - Controller navigation. The panel works with the mouse only, like the Admin Menu.
 - Matching the look of the game's own Options screens. The panel uses the Admin Menu's look.
 - Syncing settings between players. Settings are local, the same as editing the `.cfg` file.
-- Reworking the existing mods. They need no changes to appear in the panel.
+- Reworking the existing mods. They appear in the panel without changes, except for the Admin Menu follow-up
+  below.
 
 ## Anti-goals
 
@@ -120,7 +126,32 @@ The user picked approach 1.
 
 The pause menu stays open underneath the panel. Because the `EventSystem` is off, its buttons can't be clicked. Closing
 the panel returns the player to the pause menu with its input restored. Escape closes only the panel. It must not also
-close the pause menu that frame, so Escape is swallowed until the key is released, the same way the Admin Menu does it.
+close the pause menu. The Admin Menu has no code for this (it simply closes on the press; `Hotkey.EscapeHeld()` is
+unused), so it is new work here. One way is to keep the game's input off until Escape is released, then restore it.
+How to do it is the builder's call. Test it in the game.
+
+### Admin Menu follow-up (Admin Menu 0.1.2, approved by the user)
+
+The Admin Menu's `Spending.Players` entry is a machine-written list of SteamID64:allow/block pairs. The mod reads it
+once at load and rewrites it from the menu. Editing it as text would be overwritten, and Reset would erase every
+saved rule. Admin Menu 0.1.2 makes two changes:
+
+- It adds `Browsable` (and the other standard fields) to its `ConfigurationManagerAttributes`.
+- It marks `Spending.Players` as `Browsable = false`.
+
+The Admin Menu's other settings are already read live, so they need no change. Team Upgrades' `Shared.*` entries
+are real player choices, read on every use, so they are shown as they are.
+
+### Living with the Admin Menu
+
+Both overlays take over the cursor, the `EventSystem` and `InputsManager`, so only one may be open at a time:
+
+- InvokyrConfig won't open while the Admin Menu is open.
+- It closes itself the moment the Admin Menu opens.
+
+It detects the Admin Menu without a compile-time reference: it finds the `InvokyrAdminMenu.AdminMenuController`
+component and reads its private `_open` field by reflection, then caches the lookup. If the Admin Menu isn't
+installed or the lookup fails, InvokyrConfig assumes it is closed.
 
 ## Builder's calls
 
