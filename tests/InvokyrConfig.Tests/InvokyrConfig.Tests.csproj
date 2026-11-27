@@ -13,6 +13,8 @@
     <Compile Include="../../src/InvokyrConfig/SettingsRegistry.cs" Link="SettingsRegistry.cs" />
     <Compile Include="../../src/InvokyrConfig/SettingAttributes.cs" Link="SettingAttributes.cs" />
     <Compile Include="../../src/InvokyrConfig/SettingValues.cs" Link="SettingValues.cs" />
+    <Compile Include="../../src/InvokyrConfig/ConfigWriter.cs" Link="ConfigWriter.cs" />
+    <Compile Include="../../src/InvokyrConfig/OverlayState.cs" Link="OverlayState.cs" />
   </ItemGroup>
 
   <ItemGroup>
