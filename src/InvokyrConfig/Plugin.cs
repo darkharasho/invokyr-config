@@ -31,6 +31,8 @@ namespace InvokyrConfig
                 "Also lists settings that mods mark as advanced.",
                 null, new ConfigurationManagerAttributes { DispName = "Show advanced settings", Order = 1 }));
 
+            AddComponent<ConfigPanelController>();
+
             Log.LogInfo($"{PluginName} {PluginVersion} loaded; press {ToggleKey.Value} or use Mods in the menu");
         }
     }
