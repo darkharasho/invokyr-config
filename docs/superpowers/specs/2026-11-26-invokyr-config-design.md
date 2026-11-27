@@ -144,14 +144,14 @@ are real player choices, read on every use, so they are shown as they are.
 
 ### Living with the Admin Menu
 
-Both overlays take over the cursor, the `EventSystem` and `InputsManager`, so only one may be open at a time:
+Both overlays take over the cursor, the `EventSystem` and `InputsManager`, so only one may be open at a time. Each
+refuses to open while the other is open and shows a short toast instead. InvokyrConfig publishes
+`InvokyrConfig.OverlayState.IsOpen`. Admin Menu 0.1.2 publishes `AdminMenuController.IsOpen`. Each reads the other's
+flag by reflection, without a compile-time reference. A missing flag (an older Admin Menu, or InvokyrConfig not
+installed) counts as closed.
 
-- InvokyrConfig won't open while the Admin Menu is open.
-- It closes itself the moment the Admin Menu opens.
-
-It detects the Admin Menu without a compile-time reference: it finds the `InvokyrAdminMenu.AdminMenuController`
-component and reads its private `_open` field by reflection, then caches the lookup. If the Admin Menu isn't
-installed or the lookup fails, InvokyrConfig assumes it is closed.
+Closing one overlay because the other opened was rejected: the closing overlay would hand the game its input back
+while the other is still open.
 
 ## Builder's calls
 
