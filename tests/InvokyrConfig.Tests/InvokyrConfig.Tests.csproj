@@ -15,6 +15,7 @@
     <Compile Include="../../src/InvokyrConfig/SettingValues.cs" Link="SettingValues.cs" />
     <Compile Include="../../src/InvokyrConfig/ConfigWriter.cs" Link="ConfigWriter.cs" />
     <Compile Include="../../src/InvokyrConfig/OverlayState.cs" Link="OverlayState.cs" />
+    <Compile Include="../../src/InvokyrConfig/RestoreGate.cs" Link="RestoreGate.cs" />
   </ItemGroup>
 
   <ItemGroup>

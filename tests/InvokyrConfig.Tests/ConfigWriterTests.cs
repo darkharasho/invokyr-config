@@ -84,6 +84,36 @@ namespace InvokyrConfig.Tests
         }
 
         [Fact]
+        public void ChangesMadeByOtherCodeAreSaved()
+        {
+            var a = TestConfig.New();
+            var entry = a.Bind("Spending", "Players", "", TestConfig.Desc(""));
+            var writer = Writer();
+            writer.Begin(new[] { a });
+
+            entry.Value = "123:block";
+            writer.End();
+
+            Assert.Equal(new[] { a }, _saved);
+        }
+
+        [Fact]
+        public void StopsListeningAfterEnd()
+        {
+            var a = TestConfig.New();
+            var entry = a.Bind("S", "V", 1, TestConfig.Desc(""));
+            var writer = Writer();
+            writer.Begin(new[] { a });
+            writer.End();
+
+            entry.Value = 2;
+            writer.Begin(System.Array.Empty<ConfigFile>());
+            writer.End();
+
+            Assert.Empty(_saved);
+        }
+
+        [Fact]
         public void SaveFailureDoesNotStopOthers()
         {
             var a = TestConfig.New();

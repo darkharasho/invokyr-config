@@ -7,6 +7,8 @@ namespace InvokyrConfig
     /// <summary>
     /// Batches saves while the panel is open: each file's SaveOnConfigSet is off (a slider drag would otherwise rewrite
     /// the file every frame), changed files are saved once a second and again on close, and SaveOnConfigSet is put back.
+    /// Any change to an open file counts, including ones the mod makes itself meanwhile (the Admin Menu recording a
+    /// player), since with SaveOnConfigSet off nothing else would write them.
     /// </summary>
     internal sealed class ConfigWriter
     {
@@ -17,11 +19,21 @@ namespace InvokyrConfig
         private readonly Dictionary<ConfigFile, bool> _priorSaveOnSet = new Dictionary<ConfigFile, bool>();
         private readonly HashSet<ConfigFile> _dirty = new HashSet<ConfigFile>();
         private float? _lastFlush;
+        private readonly EventHandler<SettingChangedEventArgs> _onChanged;
 
         public ConfigWriter(Action<ConfigFile> save = null, Action<ConfigFile, Exception> onError = null)
         {
             _save = save ?? (f => f.Save());
             _onError = onError;
+            _onChanged = OnSettingChanged;
+        }
+
+        private void OnSettingChanged(object sender, SettingChangedEventArgs args)
+        {
+            var file = sender as ConfigFile;
+            if (file == null && args != null && args.ChangedSetting != null)
+                file = args.ChangedSetting.ConfigFile;
+            MarkDirty(file);
         }
 
         public void Begin(IEnumerable<ConfigFile> files)
@@ -33,6 +45,7 @@ namespace InvokyrConfig
                     continue;
                 _priorSaveOnSet[file] = file.SaveOnConfigSet;
                 file.SaveOnConfigSet = false;
+                file.SettingChanged += _onChanged;
             }
             _lastFlush = null;
         }
@@ -57,7 +70,10 @@ namespace InvokyrConfig
         {
             Flush();
             foreach (var pair in _priorSaveOnSet)
+            {
+                pair.Key.SettingChanged -= _onChanged;
                 pair.Key.SaveOnConfigSet = pair.Value;
+            }
             _priorSaveOnSet.Clear();
         }
 

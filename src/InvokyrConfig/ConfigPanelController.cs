@@ -12,8 +12,9 @@ namespace InvokyrConfig
     /// <summary>
     /// The settings panel: opens on the hotkey or from a Mods button, lists every plugin's settings, and edits them
     /// live. While open the game's input actions are off (<c>InputsManager.Disable</c>), the cursor is free and the uGUI
-    /// event system is off so clicks don't reach the menu underneath. Closed with Escape, the game's input stays off
-    /// until Escape is released, so the same press can't also close the pause menu.
+    /// event system and its input module are off so clicks don't reach the menu underneath. After closing, input stays
+    /// off until Escape and the mouse are released (<see cref="RestoreGate"/>), so the closing press can't also act on
+    /// the pause menu; the panel counts as open for the Admin Menu until then.
     /// </summary>
     public sealed class ConfigPanelController : MonoBehaviour
     {
@@ -32,11 +33,13 @@ namespace InvokyrConfig
         private SettingRows _rows;
 
         private bool _open;
-        private bool _restorePending;
+        private readonly RestoreGate _restore = new RestoreGate();
         private int _scene;
         private InputsManager _inputs;
         private EventSystem _eventSystem;
         private bool _disabledEvents;
+        private BaseInputModule _module;
+        private bool _disabledModule;
         private CursorLockMode _priorLock;
         private bool _priorVisible;
         private bool _loggedError;
@@ -53,26 +56,26 @@ namespace InvokyrConfig
         {
             Instance = this;
             _writer = new ConfigWriter(onError: (file, e) => Plugin.Log.LogWarning($"Couldn't save {file.ConfigFilePath}: {e.Message}"));
-            _rows = new SettingRows(_writer, message => _status = message);
+            _rows = new SettingRows(message => _status = message);
         }
 
         private void Update()
         {
             try
             {
-                if (_restorePending && !Hotkey.EscapeHeld())
+                if (_restore.Tick(Hotkey.EscapeHeld(), Hotkey.MouseHeld()))
                     RestoreInput(lost: false);
                 if (_open)
                 {
                     if (SceneManager.GetActiveScene().handle != _scene)
                     {
-                        Close(escape: false, lost: true);
+                        Close(lost: true);
                         return;
                     }
                     MenuInput.Poll(Screen.height / ReferenceHeight);
                     if (Hotkey.EscapePressed())
                     {
-                        Close(escape: true, lost: false);
+                        Close(lost: false);
                         return;
                     }
                     KeepCursorFree();
@@ -81,7 +84,7 @@ namespace InvokyrConfig
                 if (Hotkey.WasPressed(Shortcut.Parse(Plugin.ToggleKey.Value)))
                 {
                     if (_open)
-                        Close(escape: false, lost: false);
+                        Close(lost: false);
                     else
                         Open();
                 }
@@ -90,7 +93,7 @@ namespace InvokyrConfig
             {
                 LogOnce("update", e);
                 if (_open)
-                    Close(escape: false, lost: true);
+                    Close(lost: true);
             }
         }
 
@@ -103,8 +106,8 @@ namespace InvokyrConfig
         private void OnDestroy()
         {
             if (_open)
-                Close(escape: false, lost: true);
-            else if (_restorePending)
+                Close(lost: true);
+            else if (_restore.Pending)
                 RestoreInput(lost: true);
             if (Instance == this)
                 Instance = null;
@@ -119,19 +122,34 @@ namespace InvokyrConfig
                 ShowToast("Close the admin menu first");
                 return;
             }
-            if (_restorePending)
-                RestoreInput(lost: false);
+            var reopening = _restore.Pending;
+            _restore.Clear();
 
             Rebuild();
-            _priorLock = Cursor.lockState;
-            _priorVisible = Cursor.visible;
-            _inputs = InputsManager.Instance;
-            _inputs?.Disable();
-            _eventSystem = EventSystem.current;
-            if (_eventSystem != null && _eventSystem.enabled)
+            // Reopened before input was handed back: the game's input is still off and the saved state still holds.
+            if (!reopening)
             {
-                _eventSystem.enabled = false;
-                _disabledEvents = true;
+                _priorLock = Cursor.lockState;
+                _priorVisible = Cursor.visible;
+                _inputs = InputsManager.Instance;
+                _inputs?.Disable();
+                _eventSystem = EventSystem.current;
+                if (_eventSystem != null)
+                {
+                    // Turning the input module off too stops it recording clicks made in the panel, which it would
+                    // otherwise replay on the menu underneath when switched back on.
+                    _module = _eventSystem.currentInputModule;
+                    if (_module != null && _module.enabled)
+                    {
+                        _module.enabled = false;
+                        _disabledModule = true;
+                    }
+                    if (_eventSystem.enabled)
+                    {
+                        _eventSystem.enabled = false;
+                        _disabledEvents = true;
+                    }
+                }
             }
             _scene = SceneManager.GetActiveScene().handle;
             MenuInput.Reset();
@@ -153,14 +171,13 @@ namespace InvokyrConfig
             MenuInput.Focus = -1;
         }
 
-        /// <param name="escape">Closed with Escape: keep the game's input off until the key is released.</param>
-        /// <param name="lost">The scene changed or something failed: hand input back now and leave the cursor to the game.</param>
-        private void Close(bool escape, bool lost)
+        /// <param name="lost">The scene changed or something failed: hand input back now and leave the cursor to the game.
+        /// Otherwise input comes back once Escape and the mouse are released.</param>
+        private void Close(bool lost)
         {
             if (!_open)
                 return;
             _open = false;
-            OverlayState.IsOpen = false;
             try
             {
                 _rows.CommitAll();
@@ -171,35 +188,35 @@ namespace InvokyrConfig
             }
             _writer.End();
             MenuInput.Reset();
-            if (escape && !lost)
-                _restorePending = true;
+            if (lost)
+                RestoreInput(lost: true);
             else
-                RestoreInput(lost);
+                _restore.Arm();
         }
 
         private void RestoreInput(bool lost)
         {
-            _restorePending = false;
-            // Another overlay opened in the meantime: it owns input now and hands it back itself.
-            var other = _adminMenuOpen.Get();
-            if (!other)
+            _restore.Clear();
+            OverlayState.IsOpen = false;
+            try
             {
-                try
-                {
-                    if (_inputs != null)
-                        _inputs.Enable();
-                }
-                catch (Exception e)
-                {
-                    Plugin.Log.LogWarning($"Couldn't turn the game's input back on: {e.Message}");
-                }
+                if (_inputs != null)
+                    _inputs.Enable();
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Couldn't turn the game's input back on: {e.Message}");
             }
             _inputs = null;
+            if (_disabledModule && _module != null)
+                _module.enabled = true;
+            _disabledModule = false;
+            _module = null;
             if (_disabledEvents && _eventSystem != null)
                 _eventSystem.enabled = true;
             _disabledEvents = false;
             _eventSystem = null;
-            if (!lost && !other)
+            if (!lost)
             {
                 Cursor.lockState = _priorLock;
                 Cursor.visible = _priorVisible;
@@ -253,7 +270,7 @@ namespace InvokyrConfig
             {
                 LogOnce("draw", e);
                 if (_open)
-                    Close(escape: false, lost: true);
+                    Close(lost: true);
             }
             finally
             {
@@ -286,7 +303,7 @@ namespace InvokyrConfig
 
             GUI.Label(new Rect(x, top, w - 130f, 48f), "MOD SETTINGS", Theme.Title);
             if (Header(new Rect(x + w - 110f, top + 4f, 110f, 40f), "Close", Theme.Button))
-                Close(escape: false, lost: false);
+                Close(lost: false);
             var subtitle = _groups.Count == 0
                 ? "No mods with settings are loaded"
                 : $"{_groups[_selected].Name} {_groups[_selected].Version} · {_groups.Count} mods";

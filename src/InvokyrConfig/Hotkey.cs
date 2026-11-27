@@ -46,6 +46,8 @@ namespace InvokyrConfig
 
         public static bool EscapeHeld() => Keyboard.current != null && Keyboard.current.escapeKey.isPressed;
 
+        public static bool MouseHeld() => Mouse.current != null && Mouse.current.leftButton.isPressed;
+
         private static bool TryGetKey(KeyCode code, out Key key)
         {
             if (Renamed.TryGetValue(code, out key))

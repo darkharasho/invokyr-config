@@ -20,7 +20,6 @@ namespace InvokyrConfig
         private const float ToggleWidth = 110f;
         private const float ResetWidth = 90f;
 
-        private readonly ConfigWriter _writer;
         private readonly Action<string> _status;
         private readonly Dictionary<ConfigEntryBase, Draft> _drafts = new Dictionary<ConfigEntryBase, Draft>();
 
@@ -31,9 +30,8 @@ namespace InvokyrConfig
             public bool Focused;
         }
 
-        public SettingRows(ConfigWriter writer, Action<string> status)
+        public SettingRows(Action<string> status)
         {
-            _writer = writer;
             _status = status;
         }
 
@@ -48,7 +46,6 @@ namespace InvokyrConfig
                 _drafts.Remove(entry);
                 MenuInput.Focus = -1;
                 SettingValues.Reset(entry);
-                _writer.MarkDirty(s.File);
                 _status($"{s.DisplayName} reset to {SettingValues.Format(entry.BoxedValue)}");
             }
 
@@ -100,8 +97,8 @@ namespace InvokyrConfig
             if (raw != current)
             {
                 var value = SettingValues.FromSlider(s.Entry.SettingType, raw, min, max);
-                if (!Equals(value, s.Entry.BoxedValue) && SettingValues.TrySet(s.Entry, value))
-                    _writer.MarkDirty(s.File);
+                if (!Equals(value, s.Entry.BoxedValue))
+                    SettingValues.TrySet(s.Entry, value);
             }
             line.LabelLeft(SettingValues.Format(s.Entry.BoxedValue), Theme.Body, ValueWidth);
         }
@@ -148,17 +145,8 @@ namespace InvokyrConfig
             _status($"{s.DisplayName}: \"{draft.Text}\" isn't a value it accepts; kept {Shown(s.Entry)}");
         }
 
-        private bool Set(Setting s, object value)
-        {
-            if (!SettingValues.TrySet(s.Entry, value))
-            {
-                // The entry may have clamped it: that's still a change worth saving.
-                _writer.MarkDirty(s.File);
-                return false;
-            }
-            _writer.MarkDirty(s.File);
-            return true;
-        }
+        /// <summary>Saving follows from the entry's SettingChanged (see ConfigWriter), so only changes are written.</summary>
+        private static bool Set(Setting s, object value) => SettingValues.TrySet(s.Entry, value);
 
         private static string Shown(ConfigEntryBase entry) =>
             entry.BoxedValue is string text ? text : SettingValues.Format(entry.BoxedValue);
